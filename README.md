@@ -45,4 +45,4 @@ As a first pass, we implement a traditioal CNN structured with layers as follows
 
 ## Performance/Evaluation
 
-The baseline model achieves performance of $96-97\%$ accuracy when evaluated on the testing set with 5 minutes of training on a basic laptop.
+The baseline model achieves performance of $$ 96-97\% $$ accuracy when evaluated on the testing set with 5 minutes of training on a basic laptop.
