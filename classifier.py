@@ -14,11 +14,11 @@ from sklearn.model_selection import train_test_split
 
 
 # Global constants
-EPOCHS = 15
+EPOCHS = 10
 IMG_HEIGHT = 40
 IMG_WIDTH = 40
-NUM_CATEGORIES = 20         # Allows user to limit number of categories
-IMAGES_PER_CATEGORY = 1000  # Allows user to limit max number of images per category
+NUM_CATEGORIES = 12        # Allows user to limit number of categories
+IMAGES_PER_CATEGORY = 100  # Allows user to limit max number of images per category
 # to train models more quickly.
 TEST_SIZE = 0.2            # Allows user to modify proportion of data set
 # withheld for testing.
@@ -52,14 +52,25 @@ def main():
         
     
     # get a compiled neural network
-    model = get_model()
+    model = get_model(args.load)
 
     # Fit model on training data
-    model.fit(x_train, y_train, epochs=EPOCHS)
+    if args.train:
+        try:
+            model.fit(x_train, y_train, epochs=EPOCHS)
+        except ValueError:
+            print(f'The loaded model has the incorrect number of outputs.  It was made/trained with NUM_CATEGORIES = {model.output.shape[1]}')
+            raise
+    else:
+        print("Model is not being trained")
 
     # Evaluate the performance of the neural network
-    model.evaluate(x_test, y_test, verbose=2)
-
+    try:
+        model.evaluate(x_test, y_test, verbose=2)
+    except ValueError:
+        print(f'The loaded model has the incorrect number of outputs.  It was made/trained with NUM_CATEGORIES = {model.output.shape[1]}')
+        raise
+    
     # Save model to file
     if args.save:
         filename = args.save
@@ -173,14 +184,19 @@ def load_testing_data(data_dir):
 
     return images, labels
 
-def get_model():
+def get_model(saved_model):
     """
     Returns a compiled convolutional neural network model. The 'input_shape'
     of the first layer is `(IMG_WIDTH, IMG_HEIGHT, 3)`.
 
     The output layer will have `NUM_CATEGORIES` neurons; one for each category.
     """
-    return get_project_model()
+    if not saved_model:
+        return get_project_model()
+    else:
+        model = tf.keras.models.load_model(saved_model)
+        print(f"Model loaded from {saved_model}")
+        return model
 
 
 def get_project_model():
