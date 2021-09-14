@@ -17,10 +17,9 @@ from sklearn.model_selection import train_test_split
 EPOCHS = 10
 IMG_HEIGHT = 40
 IMG_WIDTH = 40
-NUM_CATEGORIES = 12        # Allows user to limit number of categories
-IMAGES_PER_CATEGORY = 100  # Allows user to limit max number of images per category
+IMAGES_PER_CATEGORY = 10000  # Allows user to limit max number of images per category
 # to train models more quickly.
-TEST_SIZE = 0.2            # Allows user to modify proportion of data set
+TEST_SIZE = 0.2              # Allows user to modify proportion of data set
 # withheld for testing.
 
 
@@ -28,10 +27,22 @@ def main():
 
     args = parse_input()
 
+    # get a compiled neural network
+    model = get_model(args.load, args.num_categories)
+
+    # If no number of categories was specified as an input,
+    # set this value to the number of outputs of the loaded (or new)
+    # model
+    if not args.num_categories:
+        args.num_categories = model.output.shape[1]
+        
     if not args.testing_data_directory:
         
         # Load images and labels for entire training set
-        images, labels = load_training_data(args.training_data_directory)
+        images, labels = load_training_data(
+            args.training_data_directory,
+            args.num_categories
+        )
 
         # Split data into training and testing sets
         labels = tf.keras.utils.to_categorical(labels)
@@ -41,36 +52,31 @@ def main():
 
     elif args.testing_data_directory:
         # Load images and labels for entire training set
-        training_images, training_labels = load_training_data(args.training_data_directory)
+        training_images, training_labels = load_training_data(
+            args.training_data_directory,
+            args.num_categories
+        )
         training_labels = tf.keras.utils.to_categorical(training_labels)
         x_train, y_train = np.array(training_images), np.array(training_labels)
 
         # Load images and labels for entire testing set
-        testing_images, testing_labels = load_testing_data(args.testing_data_directory)
+        testing_images, testing_labels = load_testing_data(
+            args.testing_data_directory,
+            args.num_categories
+        )
         testing_labels = tf.keras.utils.to_categorical(testing_labels)
         x_test, y_test = np.array(testing_images), np.array(testing_labels)
-        
-    
-    # get a compiled neural network
-    model = get_model(args.load)
+            
 
     # Fit model on training data
     if args.train:
-        try:
-            model.fit(x_train, y_train, epochs=EPOCHS)
-        except ValueError:
-            print(f'The loaded model has the incorrect number of outputs.  It was made/trained with NUM_CATEGORIES = {model.output.shape[1]}')
-            raise
+        model.fit(x_train, y_train, epochs=EPOCHS)
     else:
         print("Model is not being trained")
 
     # Evaluate the performance of the neural network
-    try:
-        model.evaluate(x_test, y_test, verbose=2)
-    except ValueError:
-        print(f'The loaded model has the incorrect number of outputs.  It was made/trained with NUM_CATEGORIES = {model.output.shape[1]}')
-        raise
-    
+    model.evaluate(x_test, y_test, verbose=2)
+
     # Save model to file
     if args.save:
         filename = args.save
@@ -93,6 +99,11 @@ def parse_input():
         '-t', '--train',
         action='store_true',
         help='boolean value that specifies whether or not to train the model.  If no model is loaded, this defaults to true; if a model is loaded, this argument defaults to false unless supplied as a command line argument.'
+    )
+    parser.add_argument(
+        '-c', '--num_categories',
+        type = int,
+        help='Specify the number of categories of images.  This defaults to 43 (the number of categories in the GTSRB dataset), unless a model is loaded, in which case this defaults to the correct number of categories for the loaded model.  If this option is specified and conflicts with a model that is loaded, the program will exit with an error.'
     )
     parser.add_argument(
         'training_data_directory',
@@ -119,7 +130,10 @@ def parse_input():
     return args
 
 
-def load_training_data(data_dir):
+def load_training_data(
+        data_dir,
+        num_categories,
+        images_per_category = IMAGES_PER_CATEGORY):
     """
     Load image data from directory 'data_dir'.
 
@@ -137,13 +151,13 @@ def load_training_data(data_dir):
     images, labels = [], []
     im_dir = os.path.join(data_dir, 'Images')
     for i, directory in enumerate(os.listdir(im_dir)):
-        if i >= NUM_CATEGORIES:
+        if i >= num_categories:
             break
         cat_dir = os.path.join(im_dir, directory)
         
         j = 0
         for fil in os.scandir(cat_dir):
-            if j >= IMAGES_PER_CATEGORY:
+            if j >= images_per_category:
                 break
             if imghdr.what(fil) == 'ppm':
                 image = cv2.imread(fil.path)
@@ -153,7 +167,7 @@ def load_training_data(data_dir):
 
     return images, labels
 
-def load_testing_data(data_dir):
+def load_testing_data(data_dir, num_categories, num_images = 10000):
     """
     Load image data from directory 'data_dir'.
 
@@ -173,33 +187,43 @@ def load_testing_data(data_dir):
 
     with open(os.path.join(data_dir, "GT-final_test.csv")) as f:
         reader = csv.DictReader(f, delimiter = ';')
+        j = 0
         for row in reader:
             label = int(row['ClassId'])
-            if label >= NUM_CATEGORIES:
+            if label >= num_categories:
                 continue
             else:
                 image = cv2.imread(os.path.join(im_dir, row['Filename']))
                 images.append(cv2.resize(image, (IMG_WIDTH, IMG_HEIGHT)))
                 labels.append(label)
+                j+= 1
+            if j >= num_images:
+                break
 
     return images, labels
 
-def get_model(saved_model):
+def get_model(saved_model, num_categories = None):
     """
     Returns a compiled convolutional neural network model. The 'input_shape'
     of the first layer is `(IMG_WIDTH, IMG_HEIGHT, 3)`.
 
-    The output layer will have `NUM_CATEGORIES` neurons; one for each category.
+    The output layer will have `num_categories` neurons; one for each category.
     """
-    if not saved_model:
-        return get_project_model()
-    else:
+    
+    if saved_model:
         model = tf.keras.models.load_model(saved_model)
         print(f"Model loaded from {saved_model}")
+        if num_categories and model.output.shape[1] != num_categories:
+            raise ValueError("The number of categories does not agree with the output shape of the loaded model.")
         return model
+    elif num_categories:
+        return get_project_model(num_categories)
+    else:
+        return get_project_model(43)
 
 
-def get_project_model():
+
+def get_project_model(num_categories):
     """
     Returns model used for the submission of my cs-50 project.
 
@@ -226,14 +250,14 @@ def get_project_model():
     model.add(tf.keras.layers.Flatten())
 
     # add hidden layer with dropout
-    model.add(tf.keras.layers.Dense(NUM_CATEGORIES * 32, activation="relu"))
-    model.add(tf.keras.layers.Dropout(0.2))
+    model.add(tf.keras.layers.Dense(num_categories * 32, activation="relu"))
+    model.add(tf.keras.layers.Dropout(0.3))
 
     # Add hidden layer
-    model.add(tf.keras.layers.Dense(NUM_CATEGORIES * 16, activation="relu"))
+    model.add(tf.keras.layers.Dense(num_categories * 16, activation="relu"))
 
     # Add output layer
-    model.add(tf.keras.layers.Dense(NUM_CATEGORIES, activation="softmax"))
+    model.add(tf.keras.layers.Dense(num_categories, activation="softmax"))
 
     model.compile(
         optimizer="adam",
