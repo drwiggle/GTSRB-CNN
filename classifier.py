@@ -160,7 +160,7 @@ def load_training_data(
             if j >= images_per_category:
                 break
             if imghdr.what(fil) == 'ppm':
-                image = cv2.imread(fil.path)
+                image = cv2.imread(fil.path, cv2.IMREAD_COLOR)
                 images.append(cv2.resize(image, (IMG_WIDTH, IMG_HEIGHT)))
                 labels.append(i)
                 j+= 1
