@@ -16,17 +16,40 @@ args = {
 ############################################################################
 class ImageCollection:
     def __init__(self, orig):
+        """
+        An ImageCollection object `imgcoll` is a container for various
+        modifications/enhancements of a single image, `orig`.
+
+        Initiate an image collection with an original image, which 
+        can be retrieved using: imcoll.get_image('orig')
+        """
         self.imdict = dict()
         self.imdict['orig'] = orig
         self.CLAHE_imgs = dict()
 
     def add_image(self, identifier, img):
+        """
+        Add an image to the image collection object with identifier `identifier`
+        - identifier is a string (or hashable).
+        - img is an image in the form of a numpy array
+        """
         self.imdict[identifier] = img
 
     def get_image(self, identifier):
+        """
+        Retrieve an image from the collection using its identifier.
+
+        Sample identifiers might be: 'orig', 'gray', 'lab', etc.
+        """
         return self.imdict[identifier]
 
     def add_CLAHE_image(self, clip_limit, grid_size, identifier, img):
+        """
+        Add an image to the image collection which has been modified with
+        a CLAHE filter.  The variables `clip_limit`, `grid_size`, and
+        `identifier` describe features of the CLAHE filter that was applied
+        to the image.  These are used to catalog the image appropriately.
+        """
         if clip_limit not in self.CLAHE_imgs:
             self.CLAHE_imgs[clip_limit] = dict()
         if grid_size not in self.CLAHE_imgs[clip_limit]:
@@ -35,8 +58,33 @@ class ImageCollection:
         return None
 
     def get_CLAHE_image(self, clip_limit, grid_size, identifier):
+        """
+        Retrieve a CLAHE modified image from the collection using its 
+        identifier.
+
+        Use `get_CLAHE_identifiers()` method for a list of acceptable
+        input tuples.
+        """
         return self.CLAHE_imgs[clip_limit][grid_size][identifier]
-        
+
+    def get_identifiers(self):
+        """
+        Returns the identifiers of all images in the collection,
+        discounting CLAHE images.
+        """
+        return list(self.imdict.keys())
+
+    def get_CLAHE_identifiers(self):
+        """
+        Returns the identifiers of all CLAHE modified images in the
+        collection.  Output is a list of tuples each of the form
+        `(clip_limit, grid_size, identifier)`
+        """        
+        clips = list(self.CLAHE_imgs.keys())
+        grid_sizes = list(self.CLAHE_imgs[clips[0]].keys())
+        identifiers = list(self.CLAHE_imgs[clips[0]][grid_sizes[0]].keys())
+        return (clips, grid_sizes, identifiers)
+    
 def display_imgs(badsamples, headers):
     """
     Displays a grid of images: all images in a single row are enhanced versions
@@ -74,7 +122,14 @@ def display_imgs(badsamples, headers):
     for i, img_coll in enumerate(badsamples.values()):
         for j, im_type in enumerate(headers):
             f.add_subplot(h, w, (i+1)*w + 1 + j)
-            plt.imshow(img_coll.get_image(im_type))
+            if im_type[:4] == 'gray':
+                plt.imshow(img_coll.get_image(im_type), cmap = 'gray')
+            elif im_type[:3] == 'lab':
+                lab = img_coll.get_image(im_type)
+                bgr = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
+                plt.imshow(bgr)
+            else:
+                plt.imshow(img_coll.get_image(im_type))
             plt.axis('off')
 
     plt.show()
@@ -141,7 +196,14 @@ def display_CLAHE_imgs(img_coll, ID):
 
         for j, clip in enumerate(clip_limits):
             f.add_subplot(h, w, (i+1)*w + 3 + j)
-            plt.imshow(img_coll.get_CLAHE_image(clip, grid, ID))
+            if ID[:4] == 'gray':
+                plt.imshow(img_coll.get_CLAHE_image(clip, grid, ID), cmap = 'gray')
+            elif ID[:3] == 'lab':
+                lab = img_coll.get_CLAHE_image(clip, grid, ID)
+                bgr = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
+                plt.imshow(bgr)
+            else:
+                plt.imshow(img_coll.get_CLAHE_image(clip, grid, ID))
             plt.axis('off')
 
     plt.show()
@@ -210,4 +272,13 @@ for clip in clip_limits:
             
 
 # display_imgs(badsamples, ['orig', 'gray', 'gray_eq', 'lab', 'lab_eq'])
-display_CLAHE_imgs(badsamples[18], 'gray')
+# for i in [2, 3, 8, 11, 18, 26, 30]:
+#     display_CLAHE_imgs(badsamples[i], 'lab')
+#     display_CLAHE_imgs(badsamples[i], 'lab_eq')
+
+# Based on these tests, the best candidates for grid_size seem to be 2, 4, 8
+# The best candidates for clip limit seem to be 5, 10, 20, but we will train
+# models for 30, 40 clip sizes as well.
+
+# Go to `IEmodeltests.py` for a direct comparison of models trained on a single
+# subset of the training set, each using different enhancement techniques
