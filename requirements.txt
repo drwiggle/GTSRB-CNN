@@ -5,3 +5,4 @@ tensorflow
 argparse
 imghdr
 cv2
+matplotlib

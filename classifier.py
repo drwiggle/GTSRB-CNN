@@ -68,7 +68,7 @@ def main():
         x_test, y_test = np.array(testing_images), np.array(testing_labels)
             
 
-    # Fit model on training data
+    # Fit model on training dat a
     if args.train:
         model.fit(x_train, y_train, epochs=EPOCHS)
     else:
@@ -202,10 +202,12 @@ def load_testing_data(data_dir, num_categories, num_images = 10000):
 
     return images, labels
 
-def get_model(saved_model, num_categories = None):
+def get_model(saved_model, num_categories = None, channels = 3):
     """
     Returns a compiled convolutional neural network model. The 'input_shape'
-    of the first layer is `(IMG_WIDTH, IMG_HEIGHT, 3)`.
+    of the first layer is `(IMG_WIDTH, IMG_HEIGHT, channels)`.
+
+    channels should be set to 3 for RGB images, and 1 for grayscale.
 
     The output layer will have `num_categories` neurons; one for each category.
     """
@@ -217,15 +219,17 @@ def get_model(saved_model, num_categories = None):
             raise ValueError("The number of categories does not agree with the output shape of the loaded model.")
         return model
     elif num_categories:
-        return get_project_model(num_categories)
+        return get_project_model(num_categories, channels)
     else:
-        return get_project_model(43)
+        return get_project_model(43, channels)
 
 
 
-def get_project_model(num_categories):
+def get_project_model(num_categories, channels = 3):
     """
     Returns model used for the submission of my cs-50 project.
+
+    Channels should be set to 3 for RGB images, and 1 for grayscale.
 
     Performance statistics when trained for 15 epochs,
     accuracy ~ 95-97 %
@@ -238,7 +242,7 @@ def get_project_model(num_categories):
         32,  # number of cells
         (3, 3),  # kernel size
         activation="relu",
-        input_shape=(IMG_HEIGHT, IMG_WIDTH, 3)
+        input_shape=(IMG_HEIGHT, IMG_WIDTH, channels)
     ))
 
     # add maxpooling layer
@@ -250,11 +254,11 @@ def get_project_model(num_categories):
     model.add(tf.keras.layers.Flatten())
 
     # add hidden layer with dropout
-    model.add(tf.keras.layers.Dense(num_categories * 32, activation="relu"))
+    model.add(tf.keras.layers.Dense(num_categories * 16, activation="relu"))
     model.add(tf.keras.layers.Dropout(0.3))
 
     # Add hidden layer
-    model.add(tf.keras.layers.Dense(num_categories * 16, activation="relu"))
+    model.add(tf.keras.layers.Dense(num_categories * 8, activation="relu"))
 
     # Add output layer
     model.add(tf.keras.layers.Dense(num_categories, activation="softmax"))

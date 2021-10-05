@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 
 args = {
     "load": "ProjectModel.h5",
-    "num_images": 15000,
+    "num_images": 150,
     "testing_data_directory": "gtsrb-testing",
     "training_data_directory": "gtsrb-training"
 }
@@ -225,7 +225,7 @@ bad_types =  [i for i,c in enumerate(bins1) if c > .75 * worst]
 # Then the most frequently misclassification categories
 bins2 = hist_classifications_of_bad_imgs(y_test, y_pred, num_categories, show = False)
 worst = max(bins2)
-bad_bins =  [i for i,c in enumerate(bins2) if c> .75 * worst]
+bad_bins =  [i for i,c in enumerate(bins2) if c > .75 * worst]
 
 
 # display a representative sample from each category
@@ -245,4 +245,3 @@ common_mixups = common_cls_of_bad_types(bad_types, misclass_img_bins, 0.4)
 print(common_mixups)
 
 show_common_mixups(common_mixups, reps)
-

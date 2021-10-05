@@ -9,6 +9,7 @@ from modelevaluation import load_rep_images
 args = {
     "load": "ProjectModel.h5",
     "num_images": 15000,
+    "num_categories": 43,
     "testing_data_directory": "gtsrb-testing",
     "training_data_directory": "gtsrb-training"
 }
@@ -79,11 +80,13 @@ class ImageCollection:
         Returns the identifiers of all CLAHE modified images in the
         collection.  Output is a list of tuples each of the form
         `(clip_limit, grid_size, identifier)`
-        """        
-        clips = list(self.CLAHE_imgs.keys())
-        grid_sizes = list(self.CLAHE_imgs[clips[0]].keys())
-        identifiers = list(self.CLAHE_imgs[clips[0]][grid_sizes[0]].keys())
-        return (clips, grid_sizes, identifiers)
+        """
+        ids = []
+        for clip, griddict in self.CLAHE_imgs.items():
+            for grid_size, iddict in griddict.items():
+                for ID in iddict.keys():
+                    ids.append((clip,grid_size, ID))
+        return ids
     
 def display_imgs(badsamples, headers):
     """
@@ -211,7 +214,7 @@ def display_CLAHE_imgs(img_coll, ID):
 ############################################################################
 
 # Load a representative image from each category
-reps = load_rep_images(args["training_data_directory"], num_categories)
+reps = load_rep_images(args["training_data_directory"], args["num_categories"])
 
 # initialize dict with bad image samples
 badsamples = dict()
@@ -282,3 +285,5 @@ for clip in clip_limits:
 
 # Go to `IEmodeltests.py` for a direct comparison of models trained on a single
 # subset of the training set, each using different enhancement techniques
+
+cls = badsamples[2].get_CLAHE_identifiers()
