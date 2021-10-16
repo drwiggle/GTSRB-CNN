@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 
 args = {
     "load": "ProjectModel.h5",
-    "num_images": 150,
+    "num_images": 10000,
     "testing_data_directory": "gtsrb-testing",
     "training_data_directory": "gtsrb-training"
 }
@@ -166,25 +166,51 @@ def show_common_mixups(mixups, reps):
     a representative image of type i.  The remaining entries are representative
     images for the most common ways that images of type i are miscategorized.
     """
-    f = plt.figure()
     w = 2 + max([len(mixups[i]) for i in mixups])
     h = len(mixups)
+    f, axs = plt.subplots(h, w)
+
     for i, k in enumerate(mixups):
+        
         val = mixups[k]
-        f.add_subplot(h, w, i * w + 1)
-        plt.imshow(reps[k])
+        ax = axs[i][0]
+        ax.imshow(reps[k])
+        ax.set_xticks([])
+        ax.set_yticks([])
+        ax.set_title(f'imgs of type {k}')
+        ax = axs[i][1]
+        ax.set_xticks([])
+        ax.set_yticks([])
+        ax.set_title('are commonly marked as')
 
-        for j, cls in enumerate(val):
-            f.add_subplot(h, w, i * w + 3 + j)
-            plt.imshow(reps[cls])
-
+        for j in range(2,w):
+            ax = axs[i][j]
+            ax.set_xticks([])
+            ax.set_yticks([])
+            if j-2 < len(val):
+                cls = val[j-2]
+                ax.imshow(reps[cls])
+                ax.set_title(f'type {cls}')
+                
     plt.show()
 
+def show_sample_imgs(reps, im_types):
+    rows = len(im_types)//5 + (len(im_types)%5 != 0)
+    cols = 5
+    f, axs = plt.subplots(rows, cols)
+    for i, im_type in enumerate(im_types):
+        ax = axs[i//cols][i%cols]
+        ax.imshow(reps[im_type])
+        ax.set_xticklabels([])
+        ax.set_yticklabels([])
+        
+    plt.show()
+    
 ############################################################################
 
 # Load the desired model and determine number of categories
-model = get_model(args["load"], None)
-num_categories = model.output.shape[1]
+# model = get_model(args["load"], None)
+# num_categories = model.output.shape[1]
 
 
 # Load a representative image from each category
@@ -192,11 +218,11 @@ reps = load_rep_images(args["training_data_directory"], num_categories)
 
 
 # Load images and labels for entire training set
-testing_images, testing_labels = load_testing_data(
-    args["testing_data_directory"],
-    num_categories,
-    args["num_images"]
-)
+# testing_images, testing_labels = load_testing_data(
+#     args["testing_data_directory"],
+#     num_categories,
+#     args["num_images"]
+# )
 
 # Convert loaded images (and labels) to numpy arrays and
 # determine predictions for model on each testing image
@@ -209,6 +235,7 @@ y_pred = np.argmax(model.predict(x_test), axis = -1)
 bad_imgs, bad_img_preds = find_incorrect_classifications(x_test, y_test, y_pred)
 
 # Only run this if bad_imgs is small
+print(len(bad_imgs))
 # show_inc_class_imgs(bad_imgs, bad_img_preds, reps)
 
 
@@ -229,7 +256,7 @@ bad_bins =  [i for i,c in enumerate(bins2) if c > .75 * worst]
 
 
 # display a representative sample from each category
-# show_bad(bad_types, bad_bins, reps)
+show_bad(bad_types, bad_bins, reps)
 
 
 # Determine how the misclassified images are being classified
@@ -240,8 +267,8 @@ misclass_img_bins = bin_misclassified_images(y_test, y_pred, num_categories)
 # frequently misclassified) and see how these types are most often
 # classified.
 
-common_mixups = common_cls_of_bad_types(bad_types, misclass_img_bins, 0.4)
+# common_mixups = common_cls_of_bad_types(bad_types, misclass_img_bins, 0.4)
 
-print(common_mixups)
+# print(common_mixups)
 
-show_common_mixups(common_mixups, reps)
+# show_common_mixups(common_mixups, reps)
